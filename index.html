@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rocks Game</title>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #timer {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        #correct-counter {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+        #question-image-container {
+            height: 300px; /* Set the desired height */
+            width: auto;
+            margin-bottom: 10px;
+            overflow: hidden; /* Ensure the image doesn't overflow its container */
+        }
+        #question-image {
+            height: 100%; /* Ensure the image fills the container height */
+            width: auto; /* Maintain aspect ratio */
+        }
+        .button {
+            display: block;
+            width: 200px;
+            margin: 10px auto;
+            padding: 15px;
+            border-radius: 30px;
+            background-color: blueviolet;
+            color: white;
+            text-align: center;
+            cursor: pointer;
+            user-select: none;
+            caret-color: transparent;
+            font-size: 1.2rem;
+            overflow: hidden;
+        }
+        .hidden {
+            display: none;
+        }
+        .flash-correct {
+            background-color: blue !important;
+        }
+        .flash-incorrect {
+            background-color: red !important;
+        }
+        #marquee {
+            position: fixed;
+            width: 100%;
+            color: yellow;
+            font-size: 1.5rem;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        #marquee span {
+            display: inline-block;
+            padding-left: 100%;
+            animation: marquee 10s linear infinite;
+        }
+        @keyframes marquee {
+            from {
+                transform: translateX(100%);
+            }
+            to {
+                transform: translateX(-100%);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="timer">00:00.0</div>
+    <audio id="soundN" src="nope.mp3"></audio>
+    <audio id="soundN2" src="no.mp3"></audio>
+    <audio id="soundY" src="correct.mp3"></audio>
+    <audio id="try" src="try.mp3"></audio>
+    <audio id="wow" src="wow.mp3"></audio>
+    <audio id="hint" src="hint.mp3"></audio>
+    <audio id="idle" src="idle.mp3"></audio>
+    <audio id="hint2" src="hint2.mp3"></audio>
+    <div id="correct-counter">Correct Answers: 0</div>
+    <div id="question-container">
+        <div id="question-image-container">
+            <img id="question-image" src="" alt="Question Image">
+        </div>
+        <div id="option1" class="button">Option 1</div>
+        <div id="option2" class="button">Option 2</div>
+        <div id="option3" class="button">Option 3</div>
+    </div>
+    <div id="marquee" class="hidden"><span>Congratulations! You've answered 20 questions correctly!</span></div>
+
+    <script>
+        var coin = 0;
+        const soundY = document.getElementById('soundY');
+        const soundN = document.getElementById('soundN');
+        const soundN2 = document.getElementById('soundN2');
+        const soundY2 = document.getElementById("wow");
+        const soundTry = document.getElementById("try");
+        const soundHint = document.getElementById("hint");
+        const soundHint2 = document.getElementById("hint2");
+        const soundIdle = document.getElementById("idle");
+        const options = ['Glassy', 'Foliation', 'Fossils', 'Small Sediments', 'Coarse Crystals', 'Vesicular'];
+        const rockOps = ['Sedimentary','Metamorphic','Igneous'];
+        const questions = [
+            {
+                image: 'foliation1.png',
+                correct: 'Foliation',
+                rock: 'Metamorphic'
+            },
+            {
+                image: 'foliation2.png',
+                correct: 'Foliation',
+                rock: 'Metamorphic'
+            },
+            {
+                image: 'foliation3.png',
+                correct: 'Foliation',
+                rock: 'Metamorphic'
+            },
+            {
+                image: 'glassy.png',
+                correct: 'Glassy',
+                rock: 'Igneous'
+            },
+            {
+                image: 'vesicular1.png',
+                correct: 'Vesicular',
+                rock: 'Igneous'
+            },
+            {
+                image: 'vesicular2.png',
+                correct: 'Vesicular',
+                rock: 'Igneous'
+            },
+            {
+                image: 'fossils1.png',
+                correct: 'Fossils',
+                rock: 'Sedimentary'
+            },
+            {
+                image: 'fossils2.png',
+                correct: 'Fossils',
+                rock: 'Sedimentary'
+            },
+            {
+                image: 'sediments1.png',
+                correct: 'Small Sediments',
+                rock: 'Sedimentary'
+            },
+            {
+                image: 'sediments2.png',
+                correct: 'Small Sediments',
+                rock: 'Sedimentary'
+            },
+            {
+                image: 'granite.png',
+                correct: 'Coarse Crystals',
+                rock: 'Igneous'
+            }
+            // Add more questions as needed
+        ];
+
+        let currentQuestion = 0;
+        let correctAnswers = 0;
+        let startTime;
+        let timerInterval;
+        let wrongCount = 0;
+        let timeSinceLast, timeOfLast = Date.now();
+        var correctOption, otherOptions;
+        let hinted = false;
+        let hinted2 = false;
+
+        // Shuffle the array of questions
+        shuffleArray(questions);
+
+        function startTimer() {
+            startTime = Date.now();
+            timeOfLast = startTime;
+            timerInterval = setInterval(updateTimer, 100);
+        }
+
+        function updateTimer() {
+            const elapsed = Date.now() - startTime;
+            const seconds = (elapsed / 1000).toFixed(1);
+            document.getElementById('timer').textContent = seconds;
+            timeSinceLast = Date.now() - timeOfLast;
+            console.log(timeSinceLast);
+            if(timeSinceLast > 10000 && hinted == false){
+                soundHint.play();
+                hinted = true;
+            }
+            if(timeSinceLast > 30000 && hinted == true){
+                soundHint2.play();
+                hinted2 = true;
+                timeOfLast = Date.now();
+            }
+            if(timeSinceLast > 100000 && hinted2 == true){
+                soundIdle.play();
+                timeOfLast = Date.now();
+            }
+
+        }
+
+        function loadQuestion() {
+            if (currentQuestion >= questions.length) {
+                currentQuestion = 0; // Reset to first question
+                shuffleArray(questions); // Reshuffle the questions when all have been asked
+            }
+
+            const question = questions[currentQuestion];
+            document.getElementById('question-image').src = question.image;
+            if(coin == 1){
+                correctOption = question.correct;
+                otherOptions = options.filter(option => option !== correctOption);
+                console.log("coin 1");
+            }
+            else if(coin == 0){
+                console.log("coin 0");
+                correctOption = question.rock;
+                console.log(correctOption + " correct ption");
+                otherOptions = rockOps.filter(option => option !== correctOption);
+            }
+            console.log(correctOption + " correct option");
+            const shuffledOptions = shuffleArray([correctOption, ...getRandomOptions(otherOptions, 2)]);
+
+            document.getElementById('option1').textContent = shuffledOptions[0];
+            document.getElementById('option2').textContent = shuffledOptions[1];
+            document.getElementById('option3').textContent = shuffledOptions[2];
+        }
+
+        function getRandomOptions(array, num) {
+            const shuffled = array.sort(() => 0.5 - Math.random());
+            return shuffled.slice(0, num);
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function updateCorrectCounter() {
+            document.getElementById('correct-counter').textContent = `Correct Answers: ${correctAnswers}`;
+        }
+
+        function checkAnswer(optionText, iD) {
+            soundN.pause();
+            soundN.currentTime = 0;
+            soundY.pause();
+            soundY.currentTime = 0;
+            soundN2.pause();
+            soundN2.currentTime = 0;
+            soundY2.pause();
+            soundY2.currentTime = 0;
+            soundTry.pause();
+            soundTry.currentTime = 0;
+
+            console.log(iD + " iD");
+            
+            const isCorrect = optionText === correctOption;
+            const optionId = `option${iD}`;
+
+            console.log(optionId + " optionID");
+
+            // Add flashing class based on correctness
+            const optionElement = document.getElementById(optionId);
+            if (isCorrect) {
+                if(wrongCount<3){
+                    soundY.play(); 
+                }
+                else{
+                    soundY2.play();
+                }
+                wrongCount = 0;
+                optionElement.classList.add('flash-correct');
+            } else {
+                wrongCount++;
+                if(wrongCount<3){
+                    soundN.play();
+                }
+                else if(wrongCount<4&&wrongCount>=3){
+                    soundN2.play();
+                }
+                else{
+                    soundTry.play();
+                }
+                
+                optionElement.classList.add('flash-incorrect');
+            }
+            timeOfLast = Date.now();
+            hinted = false;
+            hinted2 = false;
+            // Remove flashing class after 500ms
+            setTimeout(() => {
+                optionElement.classList.remove('flash-correct', 'flash-incorrect');
+                
+                // Generate the next question after the flashing effect is complete
+                currentQuestion++;
+                flipCoin();
+                if (currentQuestion < questions.length) {
+                    loadQuestion();
+                } else {
+                    currentQuestion = 0; // Loop back to the first question
+                    loadQuestion();
+                }
+            }, 500);
+
+            // Update correct counter
+            if (isCorrect) {
+                correctAnswers++;
+            } else {
+                correctAnswers--;
+                if (correctAnswers < 0) correctAnswers = 0; // Prevent negative counter
+            }
+
+            // Show marquee if 20 correct answers
+            if (correctAnswers === 20) {
+                document.getElementById('marquee').classList.remove('hidden');
+                clearInterval(timerInterval); // Stop the timer
+                document.getElementById('timer').style.color = 'blue';
+                document.getElementById('timer').style.fontSize = '3rem'; // Increase font size by 1.5 times (2rem * 1.5 = 3rem)
+                setRandomMarqueePosition(); // Set random position for the marquee
+                hideOptions(); // Hide options and make them unclickable
+            }
+
+            // Update correct counter display
+            updateCorrectCounter();
+        }
+
+        function setRandomMarqueePosition() {
+            const marquee = document.getElementById('marquee');
+            const randomTop = Math.floor(Math.random() * 90); // Random position between 0 and 90% of the viewport height
+            marquee.style.top = `${randomTop}%`;
+        }
+
+        function flipCoin(){
+            let result = Math.random();
+            if(result >= 0.5){coin = 1;}
+            else{coin = 0;}
+        }
+
+        function hideOptions() {
+            document.getElementById('option1').classList.add('hidden');
+            document.getElementById('option2').classList.add('hidden');
+            document.getElementById('option3').classList.add('hidden');
+            document.getElementById('option1').onclick = null;
+            document.getElementById('option2').onclick = null;
+            document.getElementById('option3').onclick = null;
+        }
+
+        document.getElementById('option1').onclick = () => checkAnswer(document.getElementById('option1').textContent,1);
+        document.getElementById('option2').onclick = () => checkAnswer(document.getElementById('option2').textContent,2);
+        document.getElementById('option3').onclick = () => checkAnswer(document.getElementById('option3').textContent,3);
+
+        startTimer();
+        loadQuestion();
+    </script>
+</body>
+</html>
